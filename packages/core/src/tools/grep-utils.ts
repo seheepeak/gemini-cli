@@ -6,6 +6,7 @@
 
 import fsPromises from 'node:fs/promises';
 import { debugLogger } from '../utils/debugLogger.js';
+import type { GrepResult } from './tools.js';
 
 /**
  * Result object for a single grep match
@@ -147,12 +148,17 @@ export async function formatGrepResults(
   },
   searchLocationDescription: string,
   totalMaxMatches: number,
-): Promise<{ llmContent: string; returnDisplay: string }> {
+): Promise<{ llmContent: string; returnDisplay: GrepResult }> {
   const { pattern, names_only, include_pattern } = params;
 
   if (allMatches.length === 0) {
     const noMatchMsg = `No matches found for pattern "${pattern}" ${searchLocationDescription}${include_pattern ? ` (filter: "${include_pattern}")` : ''}.`;
-    return { llmContent: noMatchMsg, returnDisplay: `No matches found` };
+    return {
+      llmContent: noMatchMsg,
+      returnDisplay: {
+        summary: `No matches found`,
+      },
+    };
   }
 
   const matchesByFile = groupMatchesByFile(allMatches);
@@ -180,7 +186,9 @@ export async function formatGrepResults(
     llmContent += filePaths.join('\n');
     return {
       llmContent: llmContent.trim(),
-      returnDisplay: `Found ${filePaths.length} files${wasTruncated ? ' (limited)' : ''}`,
+      returnDisplay: {
+        summary: `Found ${filePaths.length} files${wasTruncated ? ' (limited)' : ''}`,
+      },
     };
   }
 
@@ -205,8 +213,15 @@ export async function formatGrepResults(
 
   return {
     llmContent: llmContent.trim(),
-    returnDisplay: `Found ${matchCount} ${matchTerm}${
-      wasTruncated ? ' (limited)' : ''
-    }`,
+    returnDisplay: {
+      summary: `Found ${matchCount} ${matchTerm}${wasTruncated ? ' (limited)' : ''}`,
+      matches: allMatches
+        .filter((m) => !m.isContext)
+        .map((m) => ({
+          filePath: m.filePath,
+          lineNumber: m.lineNumber,
+          line: m.line,
+        })),
+    },
   };
 }

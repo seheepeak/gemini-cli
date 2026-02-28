@@ -691,12 +691,42 @@ export interface TodoList {
 
 export type ToolLiveOutput = string | AnsiOutput | SubagentProgress;
 
+export interface StructuredToolResult {
+  summary: string;
+}
+
+export interface GrepResult extends StructuredToolResult {
+  matches?: Array<{
+    filePath: string;
+    lineNumber: number;
+    line: string;
+  }>;
+  payload?: string;
+}
+
+export interface ListDirectoryResult extends StructuredToolResult {
+  files?: string[];
+  payload?: string;
+}
+
+export interface ReadManyFilesResult extends StructuredToolResult {
+  files?: string[];
+  skipped?: Array<{ path: string; reason: string }>;
+  include?: string[];
+  excludes?: string[];
+  targetDir?: string;
+  payload?: string;
+}
+
 export type ToolResultDisplay =
   | string
   | FileDiff
   | AnsiOutput
   | TodoList
-  | SubagentProgress;
+  | SubagentProgress
+  | GrepResult
+  | ListDirectoryResult
+  | ReadManyFilesResult;
 
 export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 

@@ -13,7 +13,7 @@ import { makeRelative, shortenPath } from '../utils/paths.js';
 import type { Config } from '../config/config.js';
 import { DEFAULT_FILE_FILTERING_OPTIONS } from '../config/constants.js';
 import { ToolErrorType } from './tool-error.js';
-import { LS_TOOL_NAME } from './tool-names.js';
+import { LS_TOOL_NAME, LS_DISPLAY_NAME } from './tool-names.js';
 import { debugLogger } from '../utils/debugLogger.js';
 import { LS_DEFINITION } from './definitions/coreTools.js';
 import { resolveToolDeclaration } from './definitions/resolver.js';
@@ -126,8 +126,10 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
   ): ToolResult {
     return {
       llmContent,
-      // Keep returnDisplay simpler in core logic
-      returnDisplay: `Error: ${returnDisplay}`,
+      // Return an object with summary for dense output support
+      returnDisplay: {
+        summary: `Error: ${returnDisplay}`,
+      },
       error: {
         message: llmContent,
         type,
@@ -152,7 +154,9 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
     if (validationError) {
       return {
         llmContent: validationError,
-        returnDisplay: 'Path not in workspace.',
+        returnDisplay: {
+          summary: 'Path not in workspace.',
+        },
         error: {
           message: validationError,
           type: ToolErrorType.PATH_NOT_IN_WORKSPACE,
@@ -184,7 +188,9 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
         // Changed error message to be more neutral for LLM
         return {
           llmContent: `Directory ${resolvedDirPath} is empty.`,
-          returnDisplay: `Directory is empty.`,
+          returnDisplay: {
+            summary: `Directory is empty.`,
+          },
         };
       }
 
@@ -261,7 +267,12 @@ class LSToolInvocation extends BaseToolInvocation<LSToolParams, ToolResult> {
 
       return {
         llmContent: resultMessage,
-        returnDisplay: displayMessage,
+        returnDisplay: {
+          summary: displayMessage,
+          files: entries.map(
+            (entry) => `${entry.isDirectory ? '[DIR] ' : ''}${entry.name}`,
+          ),
+        },
       };
     } catch (error) {
       const errorMsg = `Error listing directory: ${error instanceof Error ? error.message : String(error)}`;
@@ -286,7 +297,7 @@ export class LSTool extends BaseDeclarativeTool<LSToolParams, ToolResult> {
   ) {
     super(
       LSTool.Name,
-      'ReadFolder',
+      LS_DISPLAY_NAME,
       LS_DEFINITION.base.description!,
       Kind.Search,
       LS_DEFINITION.base.parametersJsonSchema,
