@@ -872,7 +872,7 @@ class EditToolInvocation
           fileName,
           editData.currentContent ?? '',
           editData.newContent,
-          this.params.new_string,
+          editData.newContent,
         );
         displayResult = {
           fileDiff,
