@@ -507,7 +507,7 @@ export const DenseToolMessage: React.FC<DenseToolMessageProps> = (props) => {
   // 3. Final Layout
   return (
     <Box flexDirection="column">
-      <Box marginLeft={3} flexDirection="row" flexWrap="wrap">
+      <Box marginLeft={2} flexDirection="row" flexWrap="wrap">
         <ToolStatusIndicator status={status} name={name} />
         <Box maxWidth={25} flexShrink={1} flexGrow={0}>
           <Text color={theme.text.primary} bold wrap="truncate-end">

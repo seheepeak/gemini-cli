@@ -82,6 +82,14 @@ const isCompactTool = (
   );
 };
 
+const COMPACT_TOOL_VIEW = 'compact tool view';
+const STANDARD_TOOL_VIEW = 'standard tool view';
+
+type ToolSegment = {
+  type: typeof COMPACT_TOOL_VIEW | typeof STANDARD_TOOL_VIEW;
+  tools: IndividualToolCallDisplay[];
+};
+
 export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   item,
   toolCalls: allToolCalls,
@@ -163,15 +171,57 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     [toolCalls],
   );
 
-  const lastToolIsCompact = useMemo(() => {
-    if (visibleToolCalls.length === 0) return false;
-    const last = visibleToolCalls[visibleToolCalls.length - 1];
-    return isCompactTool(last, settings.merged.ui.compactToolOutput);
+  const segments = useMemo(() => {
+    const compactMode = settings.merged.ui.compactToolOutput;
+    const segs: ToolSegment[] = [];
+
+    for (const tool of visibleToolCalls) {
+      const isCompact = isCompactTool(tool, compactMode);
+
+      if (isCompact) {
+        if (
+          segs.length > 0 &&
+          segs[segs.length - 1].type === COMPACT_TOOL_VIEW
+        ) {
+          segs[segs.length - 1].tools.push(tool);
+        } else {
+          segs.push({ type: COMPACT_TOOL_VIEW, tools: [tool] });
+        }
+      } else {
+        // Standard tools are ALWAYS isolated in their own segment to ensure
+        // they render in separate, fully-bordered boxes.
+        segs.push({ type: STANDARD_TOOL_VIEW, tools: [tool] });
+      }
+    }
+    return segs;
   }, [visibleToolCalls, settings.merged.ui.compactToolOutput]);
 
-  const staticHeight =
-    /* border */ 2 +
-    (lastToolIsCompact && borderBottomOverride !== false ? 1 : 0);
+  const staticHeight = useMemo(() => {
+    let height = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      if (segment.type === STANDARD_TOOL_VIEW) {
+        // Each standard tool has 3 lines of static overhead in StickyHeader (border/padding, text, separator)
+        height += 3 * segment.tools.length;
+        // Each standard segment has 1 line for the closing footer border
+        height += 1;
+      } else {
+        // Compact tools take 1 line per tool
+        height += segment.tools.length;
+      }
+
+      // Spacing between segments (marginTop on all segments except the first)
+      if (i > 0) {
+        height += 1;
+      }
+    }
+
+    // if visibleToolCalls is 0, we might still draw a border if borderBottomOverride is true
+    if (visibleToolCalls.length === 0 && borderBottomOverride === true) {
+      height += 1;
+    }
+    return height;
+  }, [segments, borderBottomOverride, visibleToolCalls.length]);
 
   let countToolCallsWithResults = 0;
   for (const tool of visibleToolCalls) {
@@ -179,12 +229,11 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       countToolCallsWithResults++;
     }
   }
-  const countOneLineToolCalls =
-    visibleToolCalls.length - countToolCallsWithResults;
+
   const availableTerminalHeightPerToolMessage = availableTerminalHeight
     ? Math.max(
         Math.floor(
-          (availableTerminalHeight - staticHeight - countOneLineToolCalls) /
+          (availableTerminalHeight - staticHeight) /
             Math.max(1, countToolCallsWithResults),
         ),
         1,
@@ -259,6 +308,13 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     isExpandable,
   ]);
 
+  const hasCompactSegments = useMemo(() => {
+    const someCompactOutput = segments.some(
+      (s) => s.type === COMPACT_TOOL_VIEW,
+    );
+    return someCompactOutput;
+  }, [segments]);
+
   // If all tools are filtered out (e.g., in-progress AskUser tools, confirming tools),
   // only render if we need to close a border from previous
   // tool groups. borderBottomOverride=true means we must render the closing border;
@@ -267,10 +323,19 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     return null;
   }
 
+  const lastSegment =
+    segments.length > 0 ? segments[segments.length - 1] : null;
+
+  // force border overrides when compact tool output is enabled
+  // const hasCompactSegments = segments.some((s) => s.type === COMPACT_TOOL_VIEW);
+  if (hasCompactSegments) {
+    borderTopOverride = true;
+    borderBottomOverride = true;
+  }
+
   const content = (
     <Box
       flexDirection="column"
-      marginBottom={lastToolIsCompact && borderBottomOverride !== false ? 1 : 0}
       /*
       This width constraint is highly important and protects us from an Ink rendering bug.
       Since the ToolGroup can typically change rendering states frequently, it can cause
@@ -280,90 +345,157 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       width={terminalWidth}
       paddingRight={TOOL_MESSAGE_HORIZONTAL_MARGIN}
     >
-      {visibleToolCalls.map((tool, index) => {
-        const isFirst = index === 0;
-        const isShellToolCall = isShellTool(tool.name);
-        const useCompact =
-          settings.merged.ui.compactToolOutput &&
-          COMPACT_OUTPUT_ALLOWLIST.has(tool.name);
+      {segments.map((segment, segmentIndex) => {
+        const isFirstSegment = segmentIndex === 0;
+        // const isLastSegment = segmentIndex === segments.length - 1;
 
-        const commonProps = {
-          ...tool,
-          availableTerminalHeight: availableTerminalHeightPerToolMessage,
-          terminalWidth: contentWidth,
-          emphasis: 'medium' as const,
-          isFirst:
-            borderTopOverride !== undefined
-              ? borderTopOverride && isFirst
-              : isFirst,
-          borderColor,
-          borderDimColor,
-          isExpandable,
-        };
-
-        if (useCompact) {
-          return <DenseToolMessage key={tool.callId} {...commonProps} />;
-        }
-
+        // Segment Rendering
         return (
           <Box
-            key={tool.callId}
+            key={`segment-${segmentIndex}`}
             flexDirection="column"
-            minHeight={1}
-            width={contentWidth}
+            marginTop={isFirstSegment ? 0 : 1}
+            marginBottom={1}
           >
-            {isShellToolCall ? (
-              <ShellToolMessage {...commonProps} config={config} />
-            ) : (
-              <ToolMessage {...commonProps} />
-            )}
-            {tool.outputFile && (
-              <Box
-                borderLeft={true}
-                borderRight={true}
-                borderTop={false}
-                borderBottom={false}
-                borderColor={borderColor}
-                borderDimColor={borderDimColor}
-                flexDirection="column"
-                borderStyle="round"
-                paddingLeft={1}
-                paddingRight={1}
-              >
-                <Box>
-                  <Text color={theme.text.primary}>
-                    Output too long and was saved to: {tool.outputFile}
-                  </Text>
-                </Box>
+            {segment.type === COMPACT_TOOL_VIEW ? (
+              // Rendering compact-view tool output
+              <Box flexDirection="column">
+                {segment.tools.map((tool) => {
+                  const commonProps = {
+                    ...tool,
+                    availableTerminalHeight:
+                      availableTerminalHeightPerToolMessage,
+                    terminalWidth: contentWidth,
+                    emphasis: 'medium' as const,
+                    isFirst: false,
+                    borderColor,
+                    borderDimColor,
+                    isExpandable,
+                  };
+                  return (
+                    <DenseToolMessage key={tool.callId} {...commonProps} />
+                  );
+                })}
               </Box>
+            ) : (
+              // Rendering standard view (non-compact) tool output
+              <>
+                {segment.tools.map((tool /* toolIndex */) => {
+                  // const isFirstToolInSegment = toolIndex === 0;
+                  const isShellToolCall = isShellTool(tool.name);
+
+                  // let isFirst: boolean;
+                  // if (hasCompactSegments) {
+                  //   isFirst = true;
+                  // } else if (isFirstToolInSegment) {
+                  //   if (isFirstSegment) {
+                  //     isFirst =
+                  //       borderTopOverride !== undefined
+                  //         ? borderTopOverride
+                  //         : true;
+                  //   } else {
+                  //     isFirst = true;
+                  //   }
+                  // } else {
+                  //   isFirst = false;
+                  // }
+
+                  const isFirst = borderTopOverride || true; // JDW: always true
+
+                  const commonProps = {
+                    ...tool,
+                    availableTerminalHeight:
+                      availableTerminalHeightPerToolMessage,
+                    terminalWidth: contentWidth,
+                    emphasis: 'medium' as const,
+                    isFirst,
+                    borderColor,
+                    borderDimColor,
+                    isExpandable,
+                  };
+
+                  return (
+                    <Box
+                      key={tool.callId}
+                      flexDirection="column"
+                      minHeight={1}
+                      width={contentWidth}
+                    >
+                      {isShellToolCall ? (
+                        <ShellToolMessage {...commonProps} config={config} />
+                      ) : (
+                        <ToolMessage {...commonProps} />
+                      )}
+                      {tool.outputFile && (
+                        <Box
+                          borderLeft={true}
+                          borderRight={true}
+                          borderTop={false}
+                          borderBottom={false}
+                          borderColor={borderColor}
+                          borderDimColor={borderDimColor}
+                          flexDirection="column"
+                          borderStyle="round"
+                          paddingLeft={1}
+                          paddingRight={1}
+                        >
+                          <Box>
+                            <Text color={theme.text.primary}>
+                              Output too long and was saved to:{' '}
+                              {tool.outputFile}
+                            </Text>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+
+                {
+                  // Border bottom when complete
+                }
+                <Box
+                  height={0}
+                  width={contentWidth}
+                  borderLeft={true}
+                  borderRight={true}
+                  borderTop={false}
+                  borderBottom={
+                    // isLastSegment ? (borderBottomOverride ?? true) : true
+                    true // JDW - always render bottom border for standard segments to create clear separation between tool calls
+                  }
+                  borderColor={borderColor}
+                  // borderColor={'red'}
+                  borderDimColor={borderDimColor}
+                  borderStyle="round"
+                />
+              </>
             )}
           </Box>
         );
       })}
-      {
-        /*
-            We have to keep the bottom border separate so it doesn't get
-            drawn over by the sticky header directly inside it.
-           */
-        (visibleToolCalls.length > 0 || borderBottomOverride !== undefined) && (
+
+      {visibleToolCalls.length === 0 &&
+        borderBottomOverride === true &&
+        !hasCompactSegments && (
+          // Border bottom while streaming
           <Box
             height={0}
             width={contentWidth}
-            borderLeft={lastToolIsCompact ? false : true}
-            borderRight={lastToolIsCompact ? false : true}
+            borderLeft={true}
+            borderRight={true}
             borderTop={false}
-            borderBottom={
-              lastToolIsCompact ? false : (borderBottomOverride ?? true)
-            }
+            borderBottom={true}
             borderColor={borderColor}
+            // borderColor={'blue'}
             borderDimColor={borderDimColor}
             borderStyle="round"
           />
-        )
-      }
+        )}
+
       {(borderBottomOverride ?? true) &&
         visibleToolCalls.length > 0 &&
-        !lastToolIsCompact && (
+        lastSegment?.type === STANDARD_TOOL_VIEW && (
           <ShowMoreLines
             constrainHeight={constrainHeight && !!isExpandable}
             isOverflowing={hasOverflow}

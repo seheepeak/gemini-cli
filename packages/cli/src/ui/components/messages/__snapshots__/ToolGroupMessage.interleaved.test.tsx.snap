@@ -1,0 +1,69 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`<ToolGroupMessage /> - Interleaved Output > renders [Standard tool view, Compact tool view, Compact tool view, Standard tool view] sequence with correct borders and spacing 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-1 A tool for testing                                    │
+│                                                                          │
+│ Standard result 1                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+
+
+  ✓  ReadFile  A tool for testing → Compact result 1
+  ✓  ReadFile  A tool for testing → Compact result 2
+
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-2 A tool for testing                                    │
+│                                                                          │
+│ Standard result 2                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`<ToolGroupMessage /> - Interleaved Output > renders [Standard tool view, Standard tool view] in compact tool view mode (separate segments) 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-1 A tool for testing                                    │
+│                                                                          │
+│ Standard result 1                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-2 A tool for testing                                    │
+│                                                                          │
+│ Standard result 2                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`<ToolGroupMessage /> - Interleaved Output > renders [Standard tool view, Standard tool view] in compact tool view mode with borderTop=false and borderBottom=false 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-1 A tool for testing                                    │
+│                                                                          │
+│ Standard result 1                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-2 A tool for testing                                    │
+│                                                                          │
+│ Standard result 2                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`<ToolGroupMessage /> - Interleaved Output > renders [Standard tool view, Standard tool view] in standard tool view mode (grouped) 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-1 A tool for testing                                    │
+│                                                                          │
+│ Standard result 1                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ ✓  standard-tool-2 A tool for testing                                    │
+│                                                                          │
+│ Standard result 2                                                        │
+╰──────────────────────────────────────────────────────────────────────────╯
+"
+`;
