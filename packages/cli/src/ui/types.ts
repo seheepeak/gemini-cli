@@ -16,8 +16,8 @@ import {
   type AgentDefinition,
   type ApprovalMode,
   type AnsiOutput,
+  CoreToolCallStatus,
 } from '@google/gemini-cli-core';
-import { CoreToolCallStatus } from '@google/gemini-cli-core/dist/src/scheduler/types.js';
 import type { PartListUnion } from '@google/genai';
 import { type ReactNode } from 'react';
 
