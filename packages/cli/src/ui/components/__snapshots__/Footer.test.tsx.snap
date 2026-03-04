@@ -33,6 +33,6 @@ exports[`<Footer /> > footer configuration filtering (golden snapshots) > render
 `;
 
 exports[`<Footer /> > hides the usage indicator when usage is not near limit 1`] = `
-" ...directories/to/make/it/long                        no sandbox (see /docs)                        /model gemini-pro
+" ...directories/to/make/it/long                        no sandbox (see /docs)                        /model gemini-pro 
 "
 `;
