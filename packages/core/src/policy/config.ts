@@ -34,7 +34,7 @@ import { type MessageBus } from '../confirmation-bus/message-bus.js';
 import { coreEvents } from '../utils/events.js';
 import { debugLogger } from '../utils/debugLogger.js';
 import { SHELL_TOOL_NAMES } from '../utils/shell-utils.js';
-import { SHELL_TOOL_NAME } from '../tools/tool-names.js';
+import { SHELL_TOOL_NAME, SENSITIVE_TOOLS } from '../tools/tool-names.js';
 import { isNodeError } from '../utils/errors.js';
 
 import { isDirectorySecure } from '../utils/security.js';
@@ -481,6 +481,19 @@ export function createPolicyUpdater(
       if (message.commandPrefix) {
         // Convert commandPrefix(es) to argsPatterns for in-memory rules
         const patterns = buildArgsPatterns(undefined, message.commandPrefix);
+        const tier =
+          message.persistScope === 'user'
+            ? USER_POLICY_TIER
+            : WORKSPACE_POLICY_TIER;
+        const priority = tier + (ALWAYS_ALLOW_PRIORITY % 1);
+
+        if (SENSITIVE_TOOLS.has(toolName) && !message.commandPrefix) {
+          debugLogger.warn(
+            `Attempted to update policy for sensitive tool '${toolName}' without a commandPrefix. Skipping.`,
+          );
+          return;
+        }
+
         for (const pattern of patterns) {
           if (pattern) {
             // Note: patterns from buildArgsPatterns are derived from escapeRegex,
@@ -488,7 +501,7 @@ export function createPolicyUpdater(
             policyEngine.addRule({
               toolName,
               decision: PolicyDecision.ALLOW,
-              priority: ALWAYS_ALLOW_PRIORITY,
+              priority,
               argsPattern: new RegExp(pattern),
               source: 'Dynamic (Confirmed)',
             });
@@ -507,10 +520,23 @@ export function createPolicyUpdater(
           ? new RegExp(message.argsPattern)
           : undefined;
 
+        const tier =
+          message.persistScope === 'user'
+            ? USER_POLICY_TIER
+            : WORKSPACE_POLICY_TIER;
+        const priority = tier + (ALWAYS_ALLOW_PRIORITY % 1);
+
+        if (SENSITIVE_TOOLS.has(toolName) && !message.argsPattern) {
+          debugLogger.warn(
+            `Attempted to update policy for sensitive tool '${toolName}' without an argsPattern. Skipping.`,
+          );
+          return;
+        }
+
         policyEngine.addRule({
           toolName,
           decision: PolicyDecision.ALLOW,
-          priority: ALWAYS_ALLOW_PRIORITY,
+          priority,
           argsPattern,
           source: 'Dynamic (Confirmed)',
         });
