@@ -24,7 +24,7 @@ export const GeneralistAgent = (
   name: 'generalist',
   displayName: 'Generalist Agent',
   description:
-    'A general-purpose AI agent with access to all tools. Highly recommended for tasks that are turn-intensive or involve processing large amounts of data. Use this to keep the main session history lean and efficient. Excellent for: batch refactoring/error fixing across multiple files, running commands with high-volume output, and speculative investigations.',
+    'A general-purpose AI agent with access to all tools. Highly recommended for tasks that are turn-intensive or involve processing large amounts of data. Use this to keep the main session history lean and efficient. Excellent for: comprehensive financial and market intelligence work, large-scale data processing, and investigative research.',
   inputConfig: {
     inputSchema: {
       type: 'object',
