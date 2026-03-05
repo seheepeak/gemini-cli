@@ -250,7 +250,7 @@ export class GeminiClient {
     return this.chat !== undefined;
   }
 
-  getHistory(): Content[] {
+  getHistory(): readonly Content[] {
     return this.getChat().getHistory();
   }
 
@@ -258,7 +258,7 @@ export class GeminiClient {
     this.getChat().stripThoughtsFromHistory();
   }
 
-  setHistory(history: Content[]) {
+  setHistory(history: readonly Content[]) {
     this.getChat().setHistory(history);
     this.updateTelemetryTokenCount();
     this.forceFullIdeContext = true;
@@ -1145,7 +1145,7 @@ export class GeminiClient {
   /**
    * Masks bulky tool outputs to save context window space.
    */
-  private async tryMaskToolOutputs(history: Content[]): Promise<void> {
+  private async tryMaskToolOutputs(history: readonly Content[]): Promise<void> {
     if (!this.config.getToolOutputMaskingEnabled()) {
       return;
     }
