@@ -75,6 +75,19 @@ export function createMockConfig(
     validatePathAccess: vi.fn().mockReturnValue(undefined),
     ...overrides,
   } as unknown as Config;
+
+  Object.defineProperty(mockConfig, 'config', {
+    get: () => mockConfig,
+    enumerable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(mockConfig, 'promptId', {
+    get: () => 'test-prompt-id',
+    enumerable: true,
+    configurable: true,
+  });
+
   mockConfig.getMessageBus = vi.fn().mockReturnValue(createMockMessageBus());
   mockConfig.getHookSystem = vi
     .fn()
