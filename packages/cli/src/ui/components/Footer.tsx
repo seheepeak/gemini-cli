@@ -197,7 +197,162 @@ export const Footer: React.FC = () => {
     errorCount > 0 &&
     (isFullErrorVerbosity || debugMode || isDevelopment);
   const displayVimMode = vimEnabled ? vimMode : undefined;
-  const items =
+
+  const hideSandboxStatus = settings.merged.ui.footer.hideSandboxStatus;
+  const hideModelInfo = settings.merged.ui.footer.hideModelInfo;
+
+  // Experimental Multi-Row Layout Refinement
+  if (settings.merged.ui.footerLayoutRefresh) {
+    const showMemoryUsage = debugMode || settings.merged.ui.showMemoryUsage;
+    const hideContextPercentage =
+      settings.merged.ui.footer.hideContextPercentage;
+
+    const displayPath = shortenPath(
+      tildeifyPath(targetDir),
+      Math.max(terminalWidth / 2, 20),
+    );
+
+    return (
+      <Box
+        width={terminalWidth}
+        height={2}
+        flexShrink={0}
+        flexDirection="row"
+        justifyContent="space-between"
+        paddingX={1}
+        paddingTop={0}
+        paddingBottom={0}
+      >
+        <Box flexDirection="column" flexShrink={1} paddingRight={2}>
+          <Text color={theme.text.secondary} wrap="truncate-end">
+            /directory
+          </Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text color={theme.text.primary} wrap="truncate-end">
+              {displayVimMode && (
+                <Text color={theme.text.secondary}>[{displayVimMode}] </Text>
+              )}
+              {displayPath}
+              {debugMode && (
+                <Text color={theme.status.error}>
+                  {' '}
+                  {' ' + (debugMessage || '--debug')}
+                </Text>
+              )}
+            </Text>
+            {uiState.showDebugProfiler && (
+              <Box marginLeft={1} flexShrink={0}>
+                <DebugProfiler />
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {branchName && (
+          <Box flexDirection="column" flexShrink={0} paddingRight={2}>
+            <Text color={theme.text.secondary} wrap="truncate-end">
+              branch
+            </Text>
+            <Text color={theme.text.primary} wrap="truncate-end">
+              {branchName}
+            </Text>
+          </Box>
+        )}
+
+        {!hideSandboxStatus && (
+          <Box flexDirection="column" flexShrink={0} paddingRight={2}>
+            <Text color={theme.text.secondary} wrap="truncate-end">
+              sandbox
+            </Text>
+            {isTrustedFolder === false ? (
+              <Text color={theme.status.warning} wrap="truncate-end">
+                untrusted
+              </Text>
+            ) : process.env['SANDBOX'] &&
+              process.env['SANDBOX'] !== 'sandbox-exec' ? (
+              <Text color="green" wrap="truncate-end">
+                {process.env['SANDBOX'].replace(/^gemini-(?:cli-)?/, '')}
+              </Text>
+            ) : process.env['SANDBOX'] === 'sandbox-exec' ? (
+              <Text color={theme.status.warning} wrap="truncate-end">
+                macOS Seatbelt
+              </Text>
+            ) : (
+              <Text color={theme.status.error} wrap="truncate-end">
+                no sandbox
+              </Text>
+            )}
+          </Box>
+        )}
+
+        {!hideModelInfo && (
+          <Box flexDirection="column" flexShrink={0} paddingRight={2}>
+            <Text color={theme.text.secondary} wrap="truncate-end">
+              /model
+            </Text>
+            <Box flexDirection="row" alignItems="center">
+              <Text color={theme.text.primary} wrap="truncate-end">
+                {getDisplayString(model)}
+              </Text>
+              {corgiMode && <Text color={theme.status.error}> ▼(´ᴥ`)▼</Text>}
+            </Box>
+          </Box>
+        )}
+
+        {!hideModelInfo && !hideContextPercentage && (
+          <Box
+            flexDirection="column"
+            flexShrink={0}
+            paddingRight={showMemoryUsage || showErrorSummary ? 2 : 0}
+          >
+            <Text color={theme.text.secondary} wrap="truncate-end">
+              context
+            </Text>
+            <Box flexDirection="row">
+              <ContextUsageDisplay
+                promptTokenCount={promptTokenCount}
+                model={model}
+                terminalWidth={terminalWidth}
+              />
+              {quotaStats && (
+                <Text wrap="truncate-end">
+                  {' '}
+                  <QuotaDisplay
+                    remaining={quotaStats.remaining}
+                    limit={quotaStats.limit}
+                    resetTime={quotaStats.resetTime}
+                    terse={true}
+                  />
+                </Text>
+              )}
+            </Box>
+          </Box>
+        )}
+
+        {(showMemoryUsage || showErrorSummary) && (
+          <Box flexDirection="column" flexShrink={0}>
+            <Text color={theme.text.secondary} wrap="truncate-end">
+              session info
+            </Text>
+            <Box flexDirection="row">
+              {showMemoryUsage && <MemoryUsageDisplay />}
+              {showMemoryUsage && showErrorSummary && (
+                <Text color={theme.text.secondary}> · </Text>
+              )}
+              {showErrorSummary && (
+                <Box paddingLeft={0} flexShrink={0}>
+                  <ConsoleSummaryDisplay errorCount={errorCount} />
+                </Box>
+              )}
+            </Box>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // --- Legacy / Configurable Layout (main branch architecture) ---
+  const itemsToRender =
     settings.merged.ui.footer.items ??
     deriveItemsFromLegacySettings(settings.merged);
   const showLabels = settings.merged.ui.footer.showLabels !== false;
@@ -237,7 +392,7 @@ export const Footer: React.FC = () => {
   }
 
   // 2. Main Configurable Items
-  for (const id of items) {
+  for (const id of itemsToRender) {
     if (!isFooterItemId(id)) continue;
     const itemConfig = ALL_ITEMS.find((i) => i.id === id);
     const header = itemConfig?.header ?? id;
@@ -310,7 +465,7 @@ export const Footer: React.FC = () => {
               terminalWidth={terminalWidth}
             />
           ),
-          10, // "100% used" is 9 chars
+          10,
         );
         break;
       }
@@ -329,7 +484,7 @@ export const Footer: React.FC = () => {
                 lowercase={true}
               />
             ),
-            10, // "daily 100%" is 10 chars, but terse is "100%" (4 chars)
+            10,
           );
         }
         break;
@@ -407,14 +562,14 @@ export const Footer: React.FC = () => {
     );
   }
 
-  // --- Width Fitting Logic ---
-  let currentWidth = 2; // Initial padding
+  // --- Width Fitting & Column Rendering Logic ---
+  let currentWidth = 2;
   const columnsToRender: FooterColumn[] = [];
   let droppedAny = false;
 
   for (let i = 0; i < potentialColumns.length; i++) {
     const col = potentialColumns[i];
-    const gap = columnsToRender.length > 0 ? (showLabels ? COLUMN_GAP : 3) : 0; // Use 3 for dot separator width
+    const gap = columnsToRender.length > 0 ? (showLabels ? COLUMN_GAP : 3) : 0;
     const budgetWidth = col.id === 'workspace' ? 20 : col.width;
 
     if (
