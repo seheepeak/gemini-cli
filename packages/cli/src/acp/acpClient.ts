@@ -237,6 +237,7 @@ export class GeminiAgent {
   async newSession({
     cwd,
     mcpServers,
+    _meta,
   }: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
     const sessionId = randomUUID();
     const loadedSettings = loadSettings(cwd);
@@ -246,6 +247,16 @@ export class GeminiAgent {
       mcpServers,
       loadedSettings,
     );
+
+    // ACP custom system prompt injection via _meta
+    const customSystemPrompt =
+      typeof _meta?.['system_prompt'] === 'string'
+        ? _meta['system_prompt']
+        : undefined;
+    if (customSystemPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+      (config as any)._customSystemPrompt = customSystemPrompt;
+    }
 
     const authType =
       loadedSettings.merged.security.auth.selectedType || AuthType.USE_GEMINI;
@@ -337,12 +348,23 @@ export class GeminiAgent {
     sessionId,
     cwd,
     mcpServers,
+    _meta,
   }: acp.LoadSessionRequest): Promise<acp.LoadSessionResponse> {
     const config = await this.initializeSessionConfig(
       sessionId,
       cwd,
       mcpServers,
     );
+
+    // ACP custom system prompt injection via _meta
+    const customSystemPrompt =
+      typeof _meta?.['system_prompt'] === 'string'
+        ? _meta['system_prompt']
+        : undefined;
+    if (customSystemPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+      (config as any)._customSystemPrompt = customSystemPrompt;
+    }
 
     const sessionSelector = new SessionSelector(config);
     const { sessionData, sessionPath } =
