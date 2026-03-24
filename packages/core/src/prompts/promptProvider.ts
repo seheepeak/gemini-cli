@@ -83,8 +83,29 @@ export class PromptProvider {
 
     let basePrompt: string;
 
-    // --- Template File Override ---
-    if (systemMdResolution.value && !systemMdResolution.isDisabled) {
+    // --- ACP custom system prompt override ---
+    // _customSystemPromptOverride (per-prompt) takes priority over _customSystemPrompt (per-session)
+    /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+    const customSystemPrompt = ((config as any)._customSystemPromptOverride ??
+      (config as any)._customSystemPrompt) as string | undefined;
+    /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+
+    if (customSystemPrompt) {
+      basePrompt = customSystemPrompt;
+      const skillsPrompt = activeSnippets.renderAgentSkills(
+        skills.map((s) => ({
+          name: s.name,
+          description: s.description,
+          location: s.location,
+        })),
+      );
+      basePrompt = applySubstitutions(
+        basePrompt,
+        config,
+        skillsPrompt,
+        isModernModel,
+      );
+    } else if (systemMdResolution.value && !systemMdResolution.isDisabled) {
       let systemMdPath = path.resolve(path.join(GEMINI_DIR, 'system.md'));
       if (!systemMdResolution.isSwitch) {
         systemMdPath = systemMdResolution.value;
