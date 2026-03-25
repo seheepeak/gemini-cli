@@ -86,8 +86,9 @@ export class PromptProvider {
     // --- ACP custom system prompt override ---
     // _customSystemPromptOverride (per-prompt) takes priority over _customSystemPrompt (per-session)
     /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
-    const customSystemPrompt = ((config as any)._customSystemPromptOverride ??
-      (config as any)._customSystemPrompt) as string | undefined;
+    const customSystemPrompt = ((context.config as any)
+      ._customSystemPromptOverride ??
+      (context.config as any)._customSystemPrompt) as string | undefined;
     /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
 
     if (customSystemPrompt) {
@@ -101,7 +102,7 @@ export class PromptProvider {
       );
       basePrompt = applySubstitutions(
         basePrompt,
-        config,
+        context.config,
         skillsPrompt,
         isModernModel,
       );

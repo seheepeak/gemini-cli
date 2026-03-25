@@ -547,9 +547,8 @@ export class GeminiChat {
 
       lastModelToUse = modelToUse;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
-      const responseJsonSchema = (this.config as any)._responseJsonSchema as
-        | Record<string, unknown>
-        | undefined;
+      const responseJsonSchema = (this.context.config as any)
+        ._responseJsonSchema as Record<string, unknown> | undefined;
       const config: GenerateContentConfig = {
         ...currentGenerateContentConfig,
         // TODO(12622): Ensure we don't overrwrite these when they are
