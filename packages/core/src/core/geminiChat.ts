@@ -558,7 +558,16 @@ export class GeminiChat {
         // TODO(12622): Ensure we don't overrwrite these when they are
         // passed via config.
         systemInstruction: this.systemInstruction,
-        ...(this.tools.length > 0 && { tools: this.tools }),
+        ...(() => {
+          const filteredTools = this.tools.filter((t) => {
+            const { functionDeclarations, ...rest } = t;
+            return (
+              (functionDeclarations?.length ?? 0) > 0 ||
+              Object.values(rest).some((v) => v != null)
+            );
+          });
+          return filteredTools.length > 0 ? { tools: filteredTools } : {};
+        })(),
         abortSignal,
         ...(responseSchema
           ? { responseMimeType: 'application/json', responseSchema }
