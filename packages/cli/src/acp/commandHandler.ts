@@ -6,10 +6,10 @@
 
 import type { Command, CommandContext } from './commands/types.js';
 import { CommandRegistry } from './commands/commandRegistry.js';
-import { MemoryCommand } from './commands/memory.js';
-import { ExtensionsCommand } from './commands/extensions.js';
-import { InitCommand } from './commands/init.js';
-import { RestoreCommand } from './commands/restore.js';
+// import { MemoryCommand } from './commands/memory.js';
+// import { ExtensionsCommand } from './commands/extensions.js';
+// import { InitCommand } from './commands/init.js';
+// import { RestoreCommand } from './commands/restore.js';
 import { ChatCommand } from './commands/chat.js';
 
 export class CommandHandler {
@@ -21,10 +21,10 @@ export class CommandHandler {
 
   private static createRegistry(): CommandRegistry {
     const registry = new CommandRegistry();
-    registry.register(new MemoryCommand());
-    registry.register(new ExtensionsCommand());
-    registry.register(new InitCommand());
-    registry.register(new RestoreCommand());
+    // registry.register(new MemoryCommand());
+    // registry.register(new ExtensionsCommand());
+    // registry.register(new InitCommand());
+    // registry.register(new RestoreCommand());
     registry.register(new ChatCommand());
     return registry;
   }

@@ -245,11 +245,14 @@ export class GeminiAgent {
   }: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
     const sessionId = randomUUID();
     const loadedSettings = loadSettings(cwd);
+    const modelOverride =
+      typeof _meta?.['model'] === 'string' ? _meta['model'] : undefined;
     const config = await this.newSessionConfig(
       sessionId,
       cwd,
       mcpServers,
       loadedSettings,
+      modelOverride,
     );
 
     // ACP custom system prompt injection via _meta
@@ -483,6 +486,7 @@ export class GeminiAgent {
     cwd: string,
     mcpServers: acp.McpServer[],
     loadedSettings?: LoadedSettings,
+    modelOverride?: string,
   ): Promise<Config> {
     const currentSettings = loadedSettings || this.settings;
     const mergedMcpServers = { ...currentSettings.merged.mcpServers };
@@ -525,7 +529,10 @@ export class GeminiAgent {
       mcpServers: mergedMcpServers,
     };
 
-    const config = await loadCliConfig(settings, sessionId, this.argv, { cwd });
+    const argv = modelOverride
+      ? { ...this.argv, model: modelOverride }
+      : this.argv;
+    const config = await loadCliConfig(settings, sessionId, argv, { cwd });
 
     return config;
   }
@@ -697,9 +704,12 @@ export class Session {
     this.pendingPrompt = pendingSend;
 
     // Set per-prompt response JSON schema (cleared on next prompt call)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+    /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+    (this.config as any)._responseSchema =
+      params._meta?.['response_schema'] ?? undefined;
     (this.config as any)._responseJsonSchema =
       params._meta?.['response_json_schema'] ?? undefined;
+    /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
 
     // ACP per-prompt policy injection via _meta
     // Always clear previous prompt-level policies first to handle abort race conditions
@@ -751,6 +761,40 @@ export class Session {
 
     const parts = await this.#resolvePrompt(params.prompt, pendingSend.signal);
 
+    // Support history override via _meta.messages
+    if (params._meta?.['messages']) {
+      if (parts.length > 0) {
+        throw new acp.RequestError(
+          -32602,
+          `prompt must be empty when _meta.messages is provided`,
+        );
+      }
+      const contentSchema = z.array(
+        z.object({
+          role: z.enum(['user', 'model']),
+          parts: z.array(z.record(z.unknown())),
+        }),
+      );
+      const parsed = contentSchema.safeParse(params._meta['messages']);
+      if (!parsed.success) {
+        throw new acp.RequestError(
+          -32602,
+          `Invalid _meta.messages format: ${parsed.error.message}`,
+        );
+      }
+      const messages = parsed.data as Content[];
+      const lastMessage = messages.at(-1);
+      if (!lastMessage || lastMessage.role !== 'user') {
+        throw new acp.RequestError(
+          -32602,
+          `_meta.messages must end with a user message`,
+        );
+      }
+      chat.setHistory(messages.slice(0, -1));
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      parts.push(...(lastMessage.parts as unknown as Part[]));
+    }
+
     // Command interception
     let commandText = '';
 
@@ -772,6 +816,11 @@ export class Session {
     }
 
     commandText = commandText.trim();
+
+    // Don't allow command execution if messages override is used
+    if (params._meta?.['messages']) {
+      commandText = '';
+    }
 
     if (
       commandText &&

@@ -546,9 +546,13 @@ export class GeminiChat {
       }
 
       lastModelToUse = modelToUse;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+      /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+      const responseSchema = (this.context.config as any)._responseSchema as
+        | Record<string, unknown>
+        | undefined;
       const responseJsonSchema = (this.context.config as any)
         ._responseJsonSchema as Record<string, unknown> | undefined;
+      /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
       const config: GenerateContentConfig = {
         ...currentGenerateContentConfig,
         // TODO(12622): Ensure we don't overrwrite these when they are
@@ -556,10 +560,11 @@ export class GeminiChat {
         systemInstruction: this.systemInstruction,
         ...(this.tools.length > 0 && { tools: this.tools }),
         abortSignal,
-        ...(responseJsonSchema && {
-          responseMimeType: 'application/json',
-          responseJsonSchema,
-        }),
+        ...(responseSchema
+          ? { responseMimeType: 'application/json', responseSchema }
+          : responseJsonSchema
+            ? { responseMimeType: 'application/json', responseJsonSchema }
+            : {}),
       };
 
       let contentsToUse: Content[] = supportsModernFeatures(modelToUse)
