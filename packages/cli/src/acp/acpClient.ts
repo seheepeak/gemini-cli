@@ -52,6 +52,7 @@ import {
   InvalidStreamError,
   type AgentLoopContext,
   updatePolicy,
+  loadPoliciesFromToml,
 } from '@google/gemini-cli-core';
 import * as acp from '@agentclientprotocol/sdk';
 import { AcpFileSystemService } from './fileSystemService.js';
@@ -263,6 +264,7 @@ export class GeminiAgent {
   async newSession({
     cwd,
     mcpServers,
+    _meta,
   }: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
     const sessionId = randomUUID();
     const loadedSettings = loadSettings(cwd);
@@ -272,6 +274,29 @@ export class GeminiAgent {
       mcpServers,
       loadedSettings,
     );
+
+    // ACP custom system prompt injection via _meta
+    const customSystemPrompt =
+      typeof _meta?.['system_prompt'] === 'string'
+        ? _meta['system_prompt']
+        : undefined;
+    if (customSystemPrompt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+      (config as any)._customSystemPrompt = customSystemPrompt;
+    }
+
+    // ACP custom policy injection via _meta
+    const policyFile =
+      typeof _meta?.['policy'] === 'string' ? _meta['policy'] : undefined;
+    if (policyFile) {
+      const result = await loadPoliciesFromToml([policyFile], () => 4);
+      for (const rule of result.rules) {
+        config.getPolicyEngine().addRule(rule);
+      }
+      for (const checker of result.checkers) {
+        config.getPolicyEngine().addChecker(checker);
+      }
+    }
 
     const authType =
       loadedSettings.merged.security.auth.selectedType || AuthType.USE_GEMINI;
@@ -325,12 +350,22 @@ export class GeminiAgent {
     await config.initialize();
     startupProfiler.flush(config);
 
-    const geminiClient = config.getGeminiClient();
-    const chat = await geminiClient.startChat();
+    const geminiClient = (config as AgentLoopContext).geminiClient;
+    await geminiClient.initialize();
+
+    const history = geminiClient.getHistory();
+    const firstText = history[0]?.parts?.[0]?.text;
+    const isSessionContext =
+      history[0]?.role === 'user' &&
+      firstText?.startsWith('<session_context>') &&
+      firstText?.endsWith('</session_context>');
+    if (isSessionContext) {
+      geminiClient.setHistory(history.slice(1));
+    }
 
     const session = new Session(
       sessionId,
-      chat,
+      geminiClient.getChat(),
       config,
       this.connection,
       this.settings,
@@ -694,6 +729,57 @@ export class Session {
     const pendingSend = new AbortController();
     this.pendingPrompt = pendingSend;
 
+    // Set per-prompt response JSON schema (cleared on next prompt call)
+    /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+    (this.context.config as any)._responseSchema =
+      params._meta?.['response_schema'] ?? undefined;
+    (this.context.config as any)._responseJsonSchema =
+      params._meta?.['response_json_schema'] ?? undefined;
+    /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+
+    // ACP per-prompt policy injection via _meta
+    // Always clear previous prompt-level policies first to handle abort race conditions
+    const policyEngine = this.context.config.getPolicyEngine();
+    const hadPreviousOverride = policyEngine
+      .getRules()
+      .some((r) => r.source === 'AcpPrompt (Override)');
+    if (hadPreviousOverride) {
+      policyEngine.removeRulesBySource('AcpPrompt (Override)');
+    }
+    const promptPolicyFile =
+      typeof params._meta?.['policy'] === 'string'
+        ? params._meta['policy']
+        : undefined;
+    if (promptPolicyFile) {
+      const result = await loadPoliciesFromToml([promptPolicyFile], () => 5);
+      for (const rule of result.rules) {
+        rule.source = 'AcpPrompt (Override)';
+        policyEngine.addRule(rule);
+      }
+    }
+    if (hadPreviousOverride || promptPolicyFile) {
+      await this.context.geminiClient.setTools();
+    }
+
+    // ACP per-prompt system prompt override via _meta
+    const customSystemPromptOverride =
+      typeof params._meta?.['system_prompt'] === 'string'
+        ? params._meta['system_prompt']
+        : undefined;
+    /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+    const prevSystemPromptOverride = (this.context.config as any)
+      ._customSystemPromptOverride as string | undefined;
+    if (customSystemPromptOverride !== prevSystemPromptOverride) {
+      if (customSystemPromptOverride) {
+        (this.context.config as any)._customSystemPromptOverride =
+          customSystemPromptOverride;
+      } else {
+        delete (this.context.config as any)._customSystemPromptOverride;
+      }
+      this.context.geminiClient.updateSystemInstruction();
+    }
+    /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+
     await this.context.config.waitForMcpInit();
 
     const promptId = Math.random().toString(16).slice(2);
@@ -749,6 +835,12 @@ export class Session {
     const modelUsageMap = new Map<string, { input: number; output: number }>();
 
     let nextMessage: Content | null = { role: 'user', parts };
+
+    // Reuse GeminiClient's private tryMaskToolOutputs to save context window.
+    // Private access: upstream may change signature — check on rebase.
+    await this.context.geminiClient['tryMaskToolOutputs'](
+      this.context.geminiClient.getHistory(),
+    );
 
     while (nextMessage !== null) {
       if (pendingSend.signal.aborted) {

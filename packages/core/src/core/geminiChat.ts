@@ -555,13 +555,34 @@ export class GeminiChat {
       }
 
       lastModelToUse = modelToUse;
+      /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+      const responseSchema = (this.context.config as any)._responseSchema as
+        | Record<string, unknown>
+        | undefined;
+      const responseJsonSchema = (this.context.config as any)
+        ._responseJsonSchema as Record<string, unknown> | undefined;
+      /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
       const config: GenerateContentConfig = {
         ...currentGenerateContentConfig,
         // TODO(12622): Ensure we don't overrwrite these when they are
         // passed via config.
         systemInstruction: this.systemInstruction,
-        tools: this.tools,
+        ...(() => {
+          const filteredTools = this.tools.filter((t) => {
+            const { functionDeclarations, ...rest } = t;
+            return (
+              (functionDeclarations?.length ?? 0) > 0 ||
+              Object.values(rest).some((v) => v != null)
+            );
+          });
+          return filteredTools.length > 0 ? { tools: filteredTools } : {};
+        })(),
         abortSignal,
+        ...(responseSchema
+          ? { responseMimeType: 'application/json', responseSchema }
+          : responseJsonSchema
+            ? { responseMimeType: 'application/json', responseJsonSchema }
+            : {}),
       };
 
       let contentsToUse: Content[] = supportsModernFeatures(modelToUse)
