@@ -6,12 +6,13 @@
 
 import type { Command, CommandContext } from './commands/types.js';
 import { CommandRegistry } from './commands/commandRegistry.js';
-import { MemoryCommand } from './commands/memory.js';
-import { ExtensionsCommand } from './commands/extensions.js';
-import { InitCommand } from './commands/init.js';
-import { RestoreCommand } from './commands/restore.js';
-import { AboutCommand } from './commands/about.js';
-import { HelpCommand } from './commands/help.js';
+// import { MemoryCommand } from './commands/memory.js';
+// import { ExtensionsCommand } from './commands/extensions.js';
+// import { InitCommand } from './commands/init.js';
+// import { RestoreCommand } from './commands/restore.js';
+// import { AboutCommand } from './commands/about.js';
+// import { HelpCommand } from './commands/help.js';
+import { ChatCommand } from './commands/chat.js';
 
 export class CommandHandler {
   private registry: CommandRegistry;
@@ -22,12 +23,13 @@ export class CommandHandler {
 
   private static createRegistry(): CommandRegistry {
     const registry = new CommandRegistry();
-    registry.register(new MemoryCommand());
-    registry.register(new ExtensionsCommand());
-    registry.register(new InitCommand());
-    registry.register(new RestoreCommand());
-    registry.register(new AboutCommand());
-    registry.register(new HelpCommand(registry));
+    // registry.register(new MemoryCommand());
+    // registry.register(new ExtensionsCommand());
+    // registry.register(new InitCommand());
+    // registry.register(new RestoreCommand());
+    // registry.register(new AboutCommand());
+    // registry.register(new HelpCommand(registry));
+    registry.register(new ChatCommand());
     return registry;
   }
 
