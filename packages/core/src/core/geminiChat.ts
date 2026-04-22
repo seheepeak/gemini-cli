@@ -129,7 +129,7 @@ function isValidContent(content: Content): boolean {
     if (part === undefined || Object.keys(part).length === 0) {
       return false;
     }
-    if (!part.thought && part.text !== undefined && part.text === '') {
+    if (!part.thought && !part.thoughtSignature && part.text === '') {
       return false;
     }
   }
@@ -560,13 +560,29 @@ export class GeminiChat {
       }
 
       lastModelToUse = modelToUse;
+      /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
+      const responseJsonSchema = (this.context.config as any)
+        ._responseJsonSchema as Record<string, unknown> | undefined;
+      /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion */
       const config: GenerateContentConfig = {
         ...currentGenerateContentConfig,
         // TODO(12622): Ensure we don't overrwrite these when they are
         // passed via config.
         systemInstruction: this.systemInstruction,
-        tools: this.tools,
+        ...(() => {
+          const filteredTools = this.tools.filter((t) => {
+            const { functionDeclarations, ...rest } = t;
+            return (
+              (functionDeclarations?.length ?? 0) > 0 ||
+              Object.values(rest).some((v) => v != null)
+            );
+          });
+          return filteredTools.length > 0 ? { tools: filteredTools } : {};
+        })(),
         abortSignal,
+        ...(responseJsonSchema
+          ? { responseMimeType: 'application/json', responseJsonSchema }
+          : {}),
       };
 
       let contentsToUse: Content[] = supportsModernFeatures(modelToUse)
@@ -956,6 +972,9 @@ export class GeminiChat {
         isValidNonThoughtTextPart(part)
       ) {
         lastPart.text += part.text;
+        if (part.thoughtSignature) {
+          lastPart.thoughtSignature = part.thoughtSignature;
+        }
       } else {
         consolidatedParts.push(part);
       }
